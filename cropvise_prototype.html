@@ -1,0 +1,1281 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Asper — Sap Analysis Platform</title>
+<!-- SheetJS for ODS/XLSX parsing -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+
+  :root {
+    --primary: #1a4d2e;
+    --primary-light: #236b3e;
+    --secondary: #2d8a52;
+    --accent: #34c759;
+    --accent-soft: #d4f5dd;
+    --surface: #ffffff;
+    --surface-dim: #f7f9f8;
+    --surface-container: #eef2f0;
+    --text: #1a1d1b;
+    --text-secondary: #6b7a71;
+    --text-tertiary: #9ca8a1;
+    --border: #dde5e0;
+    --border-light: #edf1ef;
+    --red: #d32f2f;
+    --red-soft: #ffeaea;
+    --orange: #e65100;
+    --orange-soft: #fff3e0;
+    --yellow: #f59e0b;
+    --yellow-soft: #fef9e7;
+    --green-soft: #e8f5e9;
+    --shadow-sm: 0 1px 2px rgba(0,0,0,0.04), 0 1px 4px rgba(0,0,0,0.04);
+    --shadow-md: 0 2px 8px rgba(0,0,0,0.06), 0 4px 16px rgba(0,0,0,0.04);
+    --shadow-lg: 0 4px 16px rgba(0,0,0,0.08), 0 8px 32px rgba(0,0,0,0.04);
+    --radius: 12px;
+    --radius-sm: 8px;
+    --radius-lg: 16px;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; background: var(--surface-dim); color: var(--text); line-height: 1.6; -webkit-font-smoothing: antialiased; }
+
+  /* HEADER */
+  .header { background: var(--primary); color: white; padding: 0 32px; height: 64px; display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 50; box-shadow: 0 1px 8px rgba(0,0,0,0.15); }
+  .header-left { display: flex; align-items: center; gap: 12px; }
+  .header-logo { width: 36px; height: 36px; background: rgba(255,255,255,0.15); border-radius: 10px; display: flex; align-items: center; justify-content: center; }
+  .header h1 { font-size: 18px; font-weight: 600; letter-spacing: -0.3px; }
+  .header .badge { background: rgba(255,255,255,0.12); border: 1px solid rgba(255,255,255,0.2); padding: 5px 14px; border-radius: 20px; font-size: 11px; font-weight: 500; letter-spacing: 0.5px; text-transform: uppercase; }
+
+  .container { max-width: 1060px; margin: 0 auto; padding: 28px 24px; }
+
+  /* STEP INDICATOR */
+  .step-indicator { display: flex; align-items: center; justify-content: center; margin-bottom: 32px; }
+  .step-item { display: flex; align-items: center; gap: 10px; padding: 10px 16px; border-radius: 40px; font-size: 12px; font-weight: 500; color: var(--text-tertiary); cursor: pointer; transition: all 0.3s; white-space: nowrap; }
+  .step-item:hover { color: var(--text-secondary); }
+  .step-connector { width: 28px; height: 2px; background: var(--border); flex-shrink: 0; transition: background 0.3s; }
+  .step-connector.done { background: var(--accent); }
+  .step-num { display: flex; align-items: center; justify-content: center; width: 26px; height: 26px; border-radius: 50%; background: var(--surface-container); color: var(--text-tertiary); font-size: 11px; font-weight: 600; transition: all 0.3s; flex-shrink: 0; }
+  .step-item.active { background: var(--primary); color: white; }
+  .step-item.active .step-num { background: rgba(255,255,255,0.25); color: white; }
+  .step-item.done { color: var(--secondary); }
+  .step-item.done .step-num { background: var(--accent); color: white; }
+  .step-item.done .step-num::after { content: '\2713'; font-size: 12px; }
+  .step-item.done .step-num-text { display: none; }
+
+  /* CARDS */
+  .card { background: var(--surface); border-radius: var(--radius-lg); padding: 36px; margin-bottom: 20px; box-shadow: var(--shadow-sm); border: 1px solid var(--border-light); animation: fadeInUp 0.35s ease; }
+  @keyframes fadeInUp { from { opacity:0; transform:translateY(12px); } to { opacity:1; transform:translateY(0); } }
+  .card h2 { color: var(--primary); font-size: 20px; font-weight: 600; margin-bottom: 6px; letter-spacing: -0.3px; }
+  .card-description { color: var(--text-secondary); font-size: 14px; margin-bottom: 24px; line-height: 1.5; }
+  .card h3 { color: var(--text); font-size: 13px; font-weight: 600; margin: 24px 0 10px; text-transform: uppercase; letter-spacing: 0.5px; }
+
+  /* BUTTONS */
+  .btn { padding: 11px 24px; border: none; border-radius: var(--radius-sm); font-size: 14px; font-weight: 600; font-family: inherit; cursor: pointer; transition: all 0.2s; display: inline-flex; align-items: center; gap: 8px; }
+  .btn-primary { background: var(--primary); color: white; box-shadow: 0 1px 3px rgba(26,77,46,0.3); }
+  .btn-primary:hover { background: var(--primary-light); transform: translateY(-1px); }
+  .btn-secondary { background: var(--surface-container); color: var(--text); border: 1.5px solid var(--border); }
+  .btn-secondary:hover { background: var(--border); }
+  .btn-row { display: flex; gap: 12px; margin-top: 28px; justify-content: flex-end; }
+  .btn-link { background: none; border: none; color: var(--secondary); font-size: 13px; font-weight: 500; cursor: pointer; font-family: inherit; padding: 0; text-decoration: underline; text-underline-offset: 2px; }
+  .btn-link:hover { color: var(--primary); }
+
+  /* UPLOAD AREA */
+  .upload-area {
+    border: 2px dashed var(--border);
+    border-radius: var(--radius-lg);
+    padding: 56px 32px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.25s;
+    background: var(--surface-dim);
+  }
+  .upload-area:hover, .upload-area.drag-over {
+    border-color: var(--secondary);
+    background: #f0faf3;
+  }
+  .upload-icon { font-size: 48px; margin-bottom: 16px; opacity: 0.7; }
+  .upload-title { font-size: 16px; font-weight: 600; color: var(--text); margin-bottom: 6px; }
+  .upload-sub { font-size: 13px; color: var(--text-secondary); }
+  .upload-formats { display: inline-block; margin-top: 16px; padding: 6px 14px; background: var(--surface-container); border-radius: 20px; font-size: 12px; color: var(--text-secondary); font-weight: 500; }
+
+  .file-success {
+    display: flex; align-items: center; gap: 16px;
+    padding: 20px 24px;
+    background: var(--green-soft);
+    border: 1.5px solid #b8dfc4;
+    border-radius: var(--radius);
+    margin-bottom: 20px;
+  }
+  .file-success-icon { font-size: 28px; }
+  .file-success-name { font-weight: 600; font-size: 15px; color: var(--primary); }
+  .file-success-meta { font-size: 13px; color: var(--text-secondary); margin-top: 2px; }
+
+  .upload-error {
+    padding: 16px 20px;
+    background: var(--red-soft);
+    border: 1.5px solid #ffb3b3;
+    border-radius: var(--radius);
+    color: var(--red);
+    font-size: 14px;
+    margin-bottom: 20px;
+  }
+
+  .demo-link { font-size: 13px; color: var(--secondary); cursor: pointer; display: inline-flex; align-items: center; gap: 6px; padding: 8px 16px; background: var(--accent-soft); border-radius: 20px; font-weight: 500; transition: all 0.2s; border: none; font-family: inherit; margin-top: 16px; }
+  .demo-link:hover { background: #c0eeca; }
+
+  /* SELECT-ALL BAR */
+  .selection-bar { display: flex; align-items: center; justify-content: space-between; padding: 10px 14px; background: var(--surface-container); border-radius: var(--radius-sm); margin-bottom: 10px; font-size: 13px; color: var(--text-secondary); }
+  .selection-bar strong { color: var(--text); }
+
+  /* SAMPLE ROWS */
+  .sample-row {
+    display: grid;
+    grid-template-columns: 32px 1fr auto auto;
+    gap: 12px; align-items: center;
+    padding: 14px 16px;
+    background: var(--surface-dim);
+    border-radius: var(--radius-sm);
+    border: 1.5px solid var(--border-light);
+    margin-bottom: 8px;
+    cursor: pointer;
+    transition: all 0.2s;
+    user-select: none;
+  }
+  .sample-row:hover { border-color: var(--secondary); background: #f4fbf6; }
+  .sample-row.is-selected { border-color: var(--secondary); background: #f0fbf3; }
+  .sample-checkbox { width: 18px; height: 18px; accent-color: var(--secondary); cursor: pointer; flex-shrink: 0; pointer-events: none; }
+  .sample-info-main { font-size: 14px; font-weight: 600; color: var(--text); }
+  .sample-info-sub { font-size: 12px; color: var(--text-secondary); margin-top: 2px; }
+  .sample-crop-badge { padding: 3px 10px; border-radius: 10px; font-size: 11px; font-weight: 600; background: var(--surface-container); color: var(--text-secondary); white-space: nowrap; }
+  .sample-date-badge { font-size: 12px; color: var(--text-tertiary); white-space: nowrap; }
+
+  /* GROWTH STAGE ROWS */
+  .growth-stage-row { display: flex; align-items: flex-end; gap: 16px; flex-wrap: wrap; padding: 16px 20px; background: var(--surface-dim); border-radius: var(--radius); border: 1.5px solid var(--border-light); margin-bottom: 12px; }
+  .gs-label { flex: 1; min-width: 160px; }
+  .gs-label strong { display: block; font-size: 15px; font-weight: 600; color: var(--text); }
+  .gs-label small { font-size: 12px; color: var(--text-secondary); }
+  .gs-field { display: flex; flex-direction: column; }
+  .gs-field label { font-size: 12px; font-weight: 500; color: var(--text-secondary); margin-bottom: 5px; }
+  .gs-field select, .gs-field input { padding: 9px 12px; border: 1.5px solid var(--border); border-radius: var(--radius-sm); font-size: 13px; font-family: inherit; outline: none; background: white; transition: border-color 0.2s; }
+  .gs-field select:focus, .gs-field input:focus { border-color: var(--secondary); }
+  .gs-field select { min-width: 230px; }
+  .gs-field input { width: 100px; }
+
+  /* STATUS BADGES */
+  .status { display: inline-block; padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 600; }
+  .status-critical { background: var(--red-soft); color: var(--red); }
+  .status-low { background: var(--orange-soft); color: var(--orange); }
+  .status-high { background: var(--orange-soft); color: var(--orange); }
+  .status-normal { background: var(--green-soft); color: var(--secondary); }
+
+  /* DATA TABLE */
+  .interp-table { width: 100%; border-collapse: separate; border-spacing: 0; margin: 16px 0; border-radius: var(--radius); overflow: hidden; border: 1px solid var(--border-light); }
+  .interp-table th { background: var(--primary); color: white; padding: 12px 16px; text-align: left; font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; }
+  .interp-table td { padding: 11px 16px; border-bottom: 1px solid var(--border-light); font-size: 13px; }
+  .interp-table tr:last-child td { border-bottom: none; }
+  .interp-table tr:nth-child(even) { background: var(--surface-dim); }
+  .interp-table tr:hover { background: #f0f5f2; }
+  .nutrient-bar-container { display: flex; align-items: center; gap: 10px; }
+  .nutrient-bar { flex: 1; height: 6px; background: var(--surface-container); border-radius: 3px; position: relative; overflow: hidden; min-width: 60px; }
+  .nutrient-bar-fill { height: 100%; border-radius: 3px; transition: width 0.6s ease; }
+
+  /* REC CARDS */
+  .rec-card { border-left: 4px solid var(--accent); padding: 20px 24px; background: var(--surface); border-radius: 0 var(--radius) var(--radius) 0; margin: 14px 0; box-shadow: var(--shadow-sm); }
+  .rec-card.urgent { border-left-color: var(--red); }
+  .rec-card.moderate { border-left-color: var(--orange); }
+  .rec-card h4 { font-size: 15px; margin-bottom: 8px; }
+  .rec-card p { font-size: 13px; color: var(--text-secondary); line-height: 1.6; }
+  .rec-priority { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 6px; display: inline-flex; align-items: center; gap: 6px; }
+  .rec-priority::before { content: ''; width: 6px; height: 6px; border-radius: 50%; display: inline-block; }
+  .rec-priority.high { color: var(--red); } .rec-priority.high::before { background: var(--red); }
+  .rec-priority.medium { color: var(--orange); } .rec-priority.medium::before { background: var(--orange); }
+  .rec-priority.low { color: var(--secondary); } .rec-priority.low::before { background: var(--accent); }
+
+  /* IMPACT GRID */
+  .impact-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin: 20px 0; }
+  .impact-item { text-align: center; padding: 16px 10px; border-radius: var(--radius); background: var(--surface); border: 1.5px solid var(--border-light); box-shadow: var(--shadow-sm); }
+  .impact-icon { font-size: 20px; margin-bottom: 6px; }
+  .impact-label { font-size: 11px; color: var(--text-tertiary); text-transform: uppercase; letter-spacing: 0.6px; font-weight: 500; }
+  .impact-value { font-size: 26px; font-weight: 700; margin-top: 2px; letter-spacing: -0.5px; }
+
+  /* RATIO CARDS */
+  .ratio-card { padding: 16px 20px; background: var(--surface); border-radius: var(--radius); border: 1.5px solid var(--border-light); margin: 10px 0; box-shadow: var(--shadow-sm); }
+  .ratio-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+  .ratio-header strong { font-size: 14px; }
+  .ratio-note { font-size: 12px; color: var(--text-secondary); line-height: 1.5; }
+
+  /* ACCORDION */
+  .accordion-item { border: 1.5px solid var(--border-light); border-radius: var(--radius); margin-bottom: 12px; overflow: hidden; box-shadow: var(--shadow-sm); }
+  .accordion-btn { display: flex; align-items: center; width: 100%; padding: 16px 20px; background: var(--surface-dim); border: none; cursor: pointer; font-family: inherit; text-align: left; gap: 14px; transition: background 0.2s; }
+  .accordion-btn:hover { background: var(--surface-container); }
+  .accordion-btn.open { background: var(--primary); color: white; }
+  .acc-title { flex: 1; min-width: 0; }
+  .acc-title strong { display: block; font-size: 15px; font-weight: 600; }
+  .acc-title small { font-size: 12px; opacity: 0.7; }
+  .acc-badges { display: flex; gap: 6px; flex-shrink: 0; align-items: center; }
+  .acc-badge { padding: 3px 10px; border-radius: 12px; font-size: 11px; font-weight: 700; white-space: nowrap; }
+  .acc-badge-red { background: var(--red-soft); color: var(--red); }
+  .acc-badge-green { background: var(--green-soft); color: var(--secondary); }
+  .accordion-btn.open .acc-badge-red, .accordion-btn.open .acc-badge-green { background: rgba(255,255,255,0.18); color: white; }
+  .acc-chevron { font-size: 11px; flex-shrink: 0; transition: transform 0.25s ease; opacity: 0.6; }
+  .accordion-btn.open .acc-chevron { transform: rotate(180deg); opacity: 1; }
+  .accordion-body { padding: 24px; display: none; background: white; }
+  .accordion-body.open { display: block; }
+
+  /* REPORT */
+  .report-meta { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 24px; margin: 20px 0; font-size: 13px; padding: 20px; background: var(--surface-dim); border-radius: var(--radius); }
+  .report-meta dt { color: var(--text-secondary); }
+  .report-meta dd { font-weight: 600; }
+  .summary-box { background: linear-gradient(135deg, var(--green-soft), #f0faf3); border: 1.5px solid #b8dfc4; border-radius: var(--radius); padding: 20px 24px; margin: 20px 0; font-size: 14px; line-height: 1.7; }
+  .summary-box strong { color: var(--primary); }
+
+  .print-btn { position: fixed; bottom: 28px; right: 28px; background: var(--primary); color: white; border: none; padding: 14px 28px; border-radius: 28px; font-size: 14px; font-weight: 600; font-family: inherit; cursor: pointer; box-shadow: var(--shadow-lg); z-index: 100; display: none; transition: all 0.2s; }
+  .print-btn:hover { background: var(--primary-light); transform: translateY(-2px); }
+
+  .analysis-loading { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 60px 20px; gap: 20px; }
+  .spinner { width: 40px; height: 40px; border: 3px solid var(--border); border-top-color: var(--secondary); border-radius: 50%; animation: spin 0.8s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .loading-text { color: var(--text-secondary); font-size: 14px; font-weight: 500; }
+
+  .hidden { display: none !important; }
+
+  @media print {
+    .header, .step-indicator, .btn-row, .print-btn, .no-print { display: none !important; }
+    .container { max-width: 100%; padding: 0; }
+    .card { box-shadow: none; border: none; padding: 0; }
+    body { background: white; }
+    .accordion-body { display: block !important; }
+    .accordion-btn { background: var(--surface-dim) !important; color: var(--text) !important; }
+  }
+
+  @media (max-width: 768px) {
+    .impact-grid { grid-template-columns: repeat(2, 1fr); }
+    .step-item span:not(.step-num) { display: none; }
+    .card { padding: 20px; }
+    .sample-row { grid-template-columns: 32px 1fr; }
+    .sample-crop-badge, .sample-date-badge { display: none; }
+  }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="header-left">
+    <div class="header-logo">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c1.5 0 3-.3 4.3-.9"/>
+        <path d="M12 2c3 3 5 7.5 5 10s-2 7-5 10"/>
+        <path d="M2 12h10"/><path d="M17 8l2 2 4-4"/>
+      </svg>
+    </div>
+    <div><h1>Asper</h1></div>
+  </div>
+  <span class="badge">Prototype</span>
+</div>
+
+<div class="container">
+  <div class="step-indicator">
+    <div class="step-item active" id="step1-tab" onclick="goToStep(1)">
+      <span class="step-num"><span class="step-num-text">1</span></span>
+      <span>Upload Results</span>
+    </div>
+    <div class="step-connector" id="conn1"></div>
+    <div class="step-item" id="step2-tab" onclick="goToStep(2)">
+      <span class="step-num"><span class="step-num-text">2</span></span>
+      <span>Select Samples</span>
+    </div>
+    <div class="step-connector" id="conn2"></div>
+    <div class="step-item" id="step3-tab" onclick="goToStep(3)">
+      <span class="step-num"><span class="step-num-text">3</span></span>
+      <span>Growth Stage</span>
+    </div>
+    <div class="step-connector" id="conn3"></div>
+    <div class="step-item" id="step4-tab" onclick="goToStep(4)">
+      <span class="step-num"><span class="step-num-text">4</span></span>
+      <span>Interpretation</span>
+    </div>
+    <div class="step-connector" id="conn4"></div>
+    <div class="step-item" id="step5-tab" onclick="goToStep(5)">
+      <span class="step-num"><span class="step-num-text">5</span></span>
+      <span>Report</span>
+    </div>
+  </div>
+
+  <!-- STEP 1: Upload -->
+  <div id="step1" class="card">
+    <h2>Upload Lab Results</h2>
+    <p class="card-description">Upload the .ods or .xlsx file received from the laboratory. Samples will be detected automatically.</p>
+
+    <div id="uploadSuccess" class="file-success hidden">
+      <div class="file-success-icon">&#10003;</div>
+      <div>
+        <div class="file-success-name" id="uploadFileName"></div>
+        <div class="file-success-meta" id="uploadFileMeta"></div>
+      </div>
+      <button class="btn-link" onclick="resetUpload()" style="margin-left:auto;">Change file</button>
+    </div>
+    <div id="uploadError" class="upload-error hidden"></div>
+
+    <div id="uploadArea" class="upload-area"
+      onclick="document.getElementById('fileInput').click()"
+      ondrop="handleFileDrop(event)"
+      ondragover="event.preventDefault(); this.classList.add('drag-over')"
+      ondragleave="this.classList.remove('drag-over')">
+      <div class="upload-icon">&#128202;</div>
+      <div class="upload-title">Drop your lab results file here</div>
+      <div class="upload-sub">or click to browse your computer</div>
+      <span class="upload-formats">.ods &nbsp;&middot;&nbsp; .xlsx &nbsp;&middot;&nbsp; .xls</span>
+    </div>
+    <input type="file" id="fileInput" accept=".ods,.xlsx,.xls" style="display:none" onchange="handleFileSelect(event)">
+
+    <div style="text-align:center;margin-top:20px;">
+      <button class="demo-link" onclick="loadDemoData()">&#9889; Use demo data instead</button>
+    </div>
+
+    <div class="btn-row">
+      <button class="btn btn-primary" id="step1Next" onclick="proceedToSelectSamples()" disabled style="opacity:0.4;cursor:not-allowed;">Next: Select Samples &rarr;</button>
+    </div>
+  </div>
+
+  <!-- STEP 2: Select Samples -->
+  <div id="step2" class="card hidden">
+    <h2>Select Samples</h2>
+    <p class="card-description" id="step2Subtitle">Choose which samples to include in the analysis.</p>
+    <div id="selectionBar" class="selection-bar"></div>
+    <div id="sampleListContainer"></div>
+    <div class="btn-row">
+      <button class="btn btn-secondary" onclick="goToStep(1)">&larr; Back</button>
+      <button class="btn btn-primary" onclick="proceedToGrowthStage()">Next: Growth Stage &rarr;</button>
+    </div>
+  </div>
+
+  <!-- STEP 3: Growth Stage -->
+  <div id="step3" class="card hidden">
+    <h2>Select Growth Stage</h2>
+    <p class="card-description">Set the current growth stage for each selected sample. This determines the benchmarks used for interpretation.</p>
+    <div id="growthStageList"></div>
+    <div class="btn-row">
+      <button class="btn btn-secondary" onclick="goToStep(2)">&larr; Back</button>
+      <button class="btn btn-primary" onclick="proceedToInterpretation()">Analyse &rarr;</button>
+    </div>
+  </div>
+
+  <!-- STEP 4: Interpretation -->
+  <div id="step4" class="card hidden">
+    <h2>Sap Analysis Interpretation</h2>
+    <p class="card-description" id="step4Subtitle">Click a sample section to expand its full analysis.</p>
+    <div id="interpretationContainer"></div>
+    <div class="btn-row">
+      <button class="btn btn-secondary" onclick="goToStep(3)">&larr; Back</button>
+      <button class="btn btn-primary" onclick="proceedToReport()">Generate Report &rarr;</button>
+    </div>
+  </div>
+
+  <!-- STEP 5: Report -->
+  <div id="step5" class="card hidden">
+    <div class="no-print btn-row" style="margin-bottom: 24px; margin-top: 0;">
+      <button class="btn btn-secondary" onclick="goToStep(4)">&larr; Back to Analysis</button>
+      <button class="btn btn-primary" onclick="window.print()">&#128438; Print / Save as PDF</button>
+    </div>
+    <div id="reportOutput"></div>
+  </div>
+</div>
+
+<button class="print-btn" id="printBtn" onclick="window.print()">&#128438; Print Report</button>
+
+<script>
+// ============================================================
+// BENCHMARKS
+// ============================================================
+const BENCHMARKS = {
+  winter_wheat: {
+    tillering: {
+      n_no3: { low: 600, optimal_low: 800, optimal_high: 1200, high: 1600 },
+      n_nh4: { low: 30, optimal_low: 50, optimal_high: 80, high: 120 },
+      phosphorus: { low: 80, optimal_low: 120, optimal_high: 200, high: 300 },
+      potassium: { low: 3000, optimal_low: 4000, optimal_high: 5500, high: 6500 },
+      calcium: { low: 400, optimal_low: 600, optimal_high: 1000, high: 1400 },
+      magnesium: { low: 200, optimal_low: 350, optimal_high: 600, high: 800 },
+      sulphur: { low: 50, optimal_low: 80, optimal_high: 150, high: 200 },
+      iron: { low: 2, optimal_low: 4, optimal_high: 8, high: 12 },
+      manganese: { low: 0.5, optimal_low: 1.5, optimal_high: 4, high: 7 },
+      zinc: { low: 1, optimal_low: 2, optimal_high: 5, high: 8 },
+      boron: { low: 1, optimal_low: 2.5, optimal_high: 5, high: 8 },
+      copper: { low: 0.1, optimal_low: 0.3, optimal_high: 0.8, high: 1.5 },
+      molybdenum: { low: 0.01, optimal_low: 0.03, optimal_high: 0.08, high: 0.15 },
+    },
+    stem_extension: {
+      n_no3: { low: 500, optimal_low: 700, optimal_high: 1100, high: 1500 },
+      n_nh4: { low: 25, optimal_low: 40, optimal_high: 70, high: 110 },
+      phosphorus: { low: 70, optimal_low: 100, optimal_high: 180, high: 280 },
+      potassium: { low: 3200, optimal_low: 4200, optimal_high: 5800, high: 7000 },
+      calcium: { low: 500, optimal_low: 700, optimal_high: 1100, high: 1500 },
+      magnesium: { low: 250, optimal_low: 400, optimal_high: 650, high: 850 },
+      sulphur: { low: 60, optimal_low: 90, optimal_high: 160, high: 220 },
+      iron: { low: 2, optimal_low: 4, optimal_high: 8, high: 12 },
+      manganese: { low: 0.8, optimal_low: 2, optimal_high: 5, high: 8 },
+      zinc: { low: 1.2, optimal_low: 2.5, optimal_high: 5.5, high: 9 },
+      boron: { low: 1.5, optimal_low: 3, optimal_high: 6, high: 9 },
+      copper: { low: 0.15, optimal_low: 0.35, optimal_high: 0.9, high: 1.6 },
+      molybdenum: { low: 0.01, optimal_low: 0.03, optimal_high: 0.08, high: 0.15 },
+    },
+    flag_leaf: {
+      n_no3: { low: 400, optimal_low: 600, optimal_high: 1000, high: 1400 },
+      n_nh4: { low: 20, optimal_low: 35, optimal_high: 60, high: 100 },
+      phosphorus: { low: 60, optimal_low: 90, optimal_high: 160, high: 260 },
+      potassium: { low: 3500, optimal_low: 4500, optimal_high: 6000, high: 7200 },
+      calcium: { low: 600, optimal_low: 800, optimal_high: 1200, high: 1600 },
+      magnesium: { low: 300, optimal_low: 450, optimal_high: 700, high: 900 },
+      sulphur: { low: 70, optimal_low: 100, optimal_high: 170, high: 230 },
+      iron: { low: 2.5, optimal_low: 4.5, optimal_high: 9, high: 13 },
+      manganese: { low: 1, optimal_low: 2.5, optimal_high: 5.5, high: 9 },
+      zinc: { low: 1.5, optimal_low: 3, optimal_high: 6, high: 10 },
+      boron: { low: 2, optimal_low: 3.5, optimal_high: 6.5, high: 10 },
+      copper: { low: 0.2, optimal_low: 0.4, optimal_high: 1, high: 1.8 },
+      molybdenum: { low: 0.015, optimal_low: 0.04, optimal_high: 0.1, high: 0.18 },
+    },
+    heading: {
+      n_no3: { low: 300, optimal_low: 500, optimal_high: 900, high: 1300 },
+      n_nh4: { low: 15, optimal_low: 30, optimal_high: 55, high: 90 },
+      phosphorus: { low: 50, optimal_low: 80, optimal_high: 150, high: 240 },
+      potassium: { low: 3600, optimal_low: 4600, optimal_high: 6200, high: 7500 },
+      calcium: { low: 700, optimal_low: 900, optimal_high: 1300, high: 1700 },
+      magnesium: { low: 350, optimal_low: 500, optimal_high: 750, high: 950 },
+      sulphur: { low: 80, optimal_low: 110, optimal_high: 180, high: 240 },
+      iron: { low: 3, optimal_low: 5, optimal_high: 10, high: 14 },
+      manganese: { low: 1.2, optimal_low: 3, optimal_high: 6, high: 10 },
+      zinc: { low: 2, optimal_low: 3.5, optimal_high: 7, high: 11 },
+      boron: { low: 2.5, optimal_low: 4, optimal_high: 7, high: 11 },
+      copper: { low: 0.25, optimal_low: 0.5, optimal_high: 1.1, high: 2 },
+      molybdenum: { low: 0.02, optimal_low: 0.05, optimal_high: 0.12, high: 0.2 },
+    },
+    grain_fill: {
+      n_no3: { low: 200, optimal_low: 400, optimal_high: 800, high: 1200 },
+      n_nh4: { low: 10, optimal_low: 25, optimal_high: 50, high: 80 },
+      phosphorus: { low: 40, optimal_low: 70, optimal_high: 130, high: 220 },
+      potassium: { low: 3800, optimal_low: 4800, optimal_high: 6400, high: 7800 },
+      calcium: { low: 800, optimal_low: 1000, optimal_high: 1400, high: 1800 },
+      magnesium: { low: 400, optimal_low: 550, optimal_high: 800, high: 1000 },
+      sulphur: { low: 90, optimal_low: 120, optimal_high: 190, high: 250 },
+      iron: { low: 3, optimal_low: 5, optimal_high: 10, high: 14 },
+      manganese: { low: 1.5, optimal_low: 3, optimal_high: 6, high: 10 },
+      zinc: { low: 2, optimal_low: 3.5, optimal_high: 7, high: 11 },
+      boron: { low: 2.5, optimal_low: 4, optimal_high: 7, high: 11 },
+      copper: { low: 0.25, optimal_low: 0.5, optimal_high: 1.1, high: 2 },
+      molybdenum: { low: 0.02, optimal_low: 0.05, optimal_high: 0.12, high: 0.2 },
+    },
+  }
+};
+BENCHMARKS.winter_barley = JSON.parse(JSON.stringify(BENCHMARKS.winter_wheat));
+BENCHMARKS.winter_osr = JSON.parse(JSON.stringify(BENCHMARKS.winter_wheat));
+
+const NUTRIENT_LABELS = {
+  n_no3: 'Nitrogen (NO\u2083)', n_nh4: 'Nitrogen (NH\u2084)',
+  phosphorus: 'Phosphorus (P)', potassium: 'Potassium (K)',
+  calcium: 'Calcium (Ca)', magnesium: 'Magnesium (Mg)',
+  sulphur: 'Sulphur (S)', iron: 'Iron (Fe)',
+  manganese: 'Manganese (Mn)', zinc: 'Zinc (Zn)',
+  boron: 'Boron (B)', copper: 'Copper (Cu)',
+  molybdenum: 'Molybdenum (Mo)'
+};
+
+const GROWTH_STAGE_LABELS = {
+  tillering: 'GS21-29 \u2014 Tillering',
+  stem_extension: 'GS30-37 \u2014 Stem Extension',
+  flag_leaf: 'GS37-39 \u2014 Flag Leaf',
+  heading: 'GS50-59 \u2014 Heading',
+  grain_fill: 'GS60-70 \u2014 Grain Fill'
+};
+
+const CROP_LABELS = {
+  winter_wheat: 'Winter Wheat',
+  winter_barley: 'Winter Barley',
+  winter_osr: 'Winter Oilseed Rape'
+};
+
+// ODS column name (after cleaning _x000D_ suffix) → benchmark key
+const COL_TO_NUTRIENT = {
+  'NO3 - Nitrate': 'n_no3',
+  'NH4 - Ammonium': 'n_nh4',
+  'P - Phosphorus': 'phosphorus',
+  'K - Potassium': 'potassium',
+  'Ca - Calcium': 'calcium',
+  'Mg - Magnesium': 'magnesium',
+  'S - Sulfur': 'sulphur',
+  'S - Sulphur': 'sulphur',
+  'Fe - Iron': 'iron',
+  'Mn - Manganese': 'manganese',
+  'Zn - Zinc': 'zinc',
+  'B - Boron': 'boron',
+  'Cu - Copper': 'copper',
+  'Mo - Molybdenum': 'molybdenum',
+};
+
+// ============================================================
+// STATE
+// ============================================================
+let parsedSamples = [];   // array of sample objects
+let currentStep = 1;
+const TOTAL_STEPS = 5;
+
+// ============================================================
+// FILE HANDLING
+// ============================================================
+function handleFileDrop(e) {
+  e.preventDefault();
+  document.getElementById('uploadArea').classList.remove('drag-over');
+  const file = e.dataTransfer.files[0];
+  if (file) processFile(file);
+}
+
+function handleFileSelect(e) {
+  const file = e.target.files[0];
+  if (file) processFile(file);
+}
+
+function processFile(file) {
+  const ext = file.name.split('.').pop().toLowerCase();
+  if (!['ods', 'xlsx', 'xls'].includes(ext)) {
+    showUploadError('Unsupported file type. Please upload an .ods or .xlsx file.');
+    return;
+  }
+
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    try {
+      const data = new Uint8Array(e.target.result);
+      const workbook = XLSX.read(data, { type: 'array', raw: false });
+
+      // Find the data sheet (prefer one with DATA in name)
+      const sheetName = workbook.SheetNames.find(n => n.toLowerCase().includes('data'))
+                        || workbook.SheetNames[0];
+      const sheet = workbook.Sheets[sheetName];
+      const rows = XLSX.utils.sheet_to_json(sheet, { raw: false, defval: '' });
+
+      if (!rows.length) throw new Error('No data rows found in the file.');
+
+      // Clean column names: strip _x000D_ and everything after it (unit suffixes)
+      const cleanedRows = rows.map(row => {
+        const clean = {};
+        for (const [k, v] of Object.entries(row)) {
+          const cleanKey = k.split('_x000D_')[0].trim();
+          // Only keep the last assignment for duplicate cleaned keys
+          clean[cleanKey] = String(v).replace(',', '.').trim();
+        }
+        return clean;
+      });
+
+      const samples = groupIntoSamples(cleanedRows);
+      if (!samples.length) throw new Error('No valid samples detected in the file.');
+
+      parsedSamples = samples;
+      showUploadSuccess(file.name, samples.length);
+    } catch(err) {
+      showUploadError('Could not read file: ' + err.message);
+    }
+  };
+  reader.onerror = () => showUploadError('Failed to read the file. Please try again.');
+  reader.readAsArrayBuffer(file);
+}
+
+function cleanVal(str) {
+  if (str === '' || str === null || str === undefined) return null;
+  const n = parseFloat(String(str).replace(',', '.').replace(/\s/g, ''));
+  return isNaN(n) ? null : n;
+}
+
+function groupIntoSamples(rows) {
+  const groups = {};
+  const order = [];
+
+  for (const row of rows) {
+    const name = (row['Name'] || '').trim();
+    const location = (row['Location/plot'] || '').trim();
+    const cultivation = (row['Cultivation'] || '').trim();
+    const plantpart = (row['Plantpart'] || '').toLowerCase();
+
+    if (!cultivation && !name) continue;  // skip empty rows
+
+    const key = location + '||' + cultivation;
+    if (!groups[key]) {
+      groups[key] = {
+        key,
+        farmName: name,
+        location,
+        cultivation,
+        crop: (row['Crop'] || '').trim(),
+        date: (row['Sampling date'] || '').trim(),
+        sampleNumber: (row['Sample number'] || '').trim(),
+        advisor: (row['Advisor'] || '').trim(),
+        youngLeaf: null,
+        oldLeaf: null,
+        selected: true,
+        growthStage: '',
+        hectares: '',
+        results: null, ratios: [], recs: []
+      };
+      order.push(key);
+    }
+    if (plantpart.includes('young')) {
+      groups[key].youngLeaf = row;
+    } else if (plantpart.includes('old')) {
+      groups[key].oldLeaf = row;
+    } else if (!groups[key].youngLeaf) {
+      groups[key].youngLeaf = row; // fallback: first row
+    }
+  }
+
+  return order.map((key, i) => {
+    const g = groups[key];
+    g.id = i + 1;
+    g.cropKey = mapCrop(g.crop);
+    g.nutrients = extractNutrients(g);
+    g.growthStage = suggestGrowthStage(g.date, g.cropKey);
+    g.growthStageAutoSuggested = !!g.growthStage;
+    return g;
+  });
+}
+
+function extractNutrients(group) {
+  const row = group.youngLeaf || group.oldLeaf;
+  if (!row) return {};
+  const nutrients = {};
+  for (const [col, benchKey] of Object.entries(COL_TO_NUTRIENT)) {
+    const val = cleanVal(row[col]);
+    if (val !== null) nutrients[benchKey] = val;
+  }
+  return nutrients;
+}
+
+function mapCrop(cropStr) {
+  const s = (cropStr || '').toLowerCase();
+  if (s.includes('wheat') || s.includes('nisu')) return 'winter_wheat';
+  if (s.includes('barley') || s.includes('oder')) return 'winter_barley';
+  if (s.includes('rape') || s.includes('osr') || s.includes('raps')) return 'winter_osr';
+  return 'winter_wheat';
+}
+
+function showUploadSuccess(filename, sampleCount) {
+  document.getElementById('uploadArea').classList.add('hidden');
+  document.getElementById('uploadError').classList.add('hidden');
+  document.getElementById('uploadSuccess').classList.remove('hidden');
+  document.getElementById('uploadFileName').textContent = filename;
+  document.getElementById('uploadFileMeta').textContent =
+    sampleCount + ' sample' + (sampleCount !== 1 ? 's' : '') + ' detected';
+
+  const btn = document.getElementById('step1Next');
+  btn.disabled = false;
+  btn.style.opacity = '1';
+  btn.style.cursor = 'pointer';
+}
+
+function showUploadError(msg) {
+  document.getElementById('uploadError').textContent = '&#9888; ' + msg;
+  document.getElementById('uploadError').classList.remove('hidden');
+}
+
+function resetUpload() {
+  parsedSamples = [];
+  document.getElementById('uploadArea').classList.remove('hidden');
+  document.getElementById('uploadSuccess').classList.add('hidden');
+  document.getElementById('uploadError').classList.add('hidden');
+  document.getElementById('fileInput').value = '';
+  const btn = document.getElementById('step1Next');
+  btn.disabled = true;
+  btn.style.opacity = '0.4';
+  btn.style.cursor = 'not-allowed';
+}
+
+// ============================================================
+// DEMO DATA
+// ============================================================
+function loadDemoData() {
+  parsedSamples = [
+    {
+      id: 1, farmName: 'Protsessiekspert OU', location: 'Kaaver',
+      cultivation: 'Wheat Paju Suur', crop: 'Wheat', cropKey: 'winter_wheat',
+      date: '27-6-2025', sampleNumber: '202507021186', advisor: 'NCC',
+      selected: true, growthStage: suggestGrowthStage('27-6-2025', 'winter_wheat'), growthStageAutoSuggested: true, hectares: '',
+      nutrients: { potassium: 5553, calcium: 1181, magnesium: 441, n_nh4: 459,
+        n_no3: 7, sulphur: 786, phosphorus: 496, iron: 3.08,
+        manganese: 2.19, zinc: 1.84, boron: 0.21, copper: 0.52, molybdenum: 0.07 },
+      results: null, ratios: [], recs: []
+    },
+    {
+      id: 2, farmName: 'Protsessiekspert OU', location: 'Polva',
+      cultivation: 'Wheat Pragitorni', crop: 'Wheat', cropKey: 'winter_wheat',
+      date: '27-6-2025', sampleNumber: '202507021188', advisor: 'NCC',
+      selected: true, growthStage: suggestGrowthStage('27-6-2025', 'winter_wheat'), growthStageAutoSuggested: true, hectares: '',
+      nutrients: { potassium: 4820, calcium: 980, magnesium: 390, n_nh4: 380,
+        n_no3: 12, sulphur: 620, phosphorus: 410, iron: 2.6,
+        manganese: 1.4, zinc: 1.5, boron: 0.18, copper: 0.38, molybdenum: 0.05 },
+      results: null, ratios: [], recs: []
+    },
+    {
+      id: 3, farmName: 'Protsessiekspert OU', location: 'Soone',
+      cultivation: 'Laaska Marguse Wheat', crop: 'Wheat', cropKey: 'winter_wheat',
+      date: '27-6-2025', sampleNumber: '202507021190', advisor: 'NCC',
+      selected: true, growthStage: suggestGrowthStage('27-6-2025', 'winter_wheat'), growthStageAutoSuggested: true, hectares: '',
+      nutrients: { potassium: 6100, calcium: 1350, magnesium: 520, n_nh4: 510,
+        n_no3: 5, sulphur: 840, phosphorus: 530, iron: 3.9,
+        manganese: 3.1, zinc: 2.4, boron: 0.31, copper: 0.68, molybdenum: 0.09 },
+      results: null, ratios: [], recs: []
+    },
+    {
+      id: 4, farmName: 'Protsessiekspert OU', location: 'Vandra',
+      cultivation: 'Wheat Esula', crop: 'Wheat', cropKey: 'winter_wheat',
+      date: '27-6-2025', sampleNumber: '202507021195', advisor: 'NCC',
+      selected: true, growthStage: suggestGrowthStage('27-6-2025', 'winter_wheat'), growthStageAutoSuggested: true, hectares: '',
+      nutrients: { potassium: 3900, calcium: 760, magnesium: 310, n_nh4: 290,
+        n_no3: 4, sulphur: 480, phosphorus: 320, iron: 1.9,
+        manganese: 0.9, zinc: 1.1, boron: 0.12, copper: 0.22, molybdenum: 0.03 },
+      results: null, ratios: [], recs: []
+    }
+  ];
+
+  showUploadSuccess('Demo data (4 samples)', parsedSamples.length);
+}
+
+// ============================================================
+// STEP NAVIGATION
+// ============================================================
+function goToStep(n) {
+  for (let i = 1; i <= TOTAL_STEPS; i++) {
+    const el = document.getElementById('step' + i);
+    if (el) el.classList.toggle('hidden', i !== n);
+    const tab = document.getElementById('step' + i + '-tab');
+    if (tab) {
+      tab.classList.remove('active', 'done');
+      if (i < n) tab.classList.add('done');
+      if (i === n) tab.classList.add('active');
+    }
+  }
+  for (let i = 1; i < TOTAL_STEPS; i++) {
+    const conn = document.getElementById('conn' + i);
+    if (conn) conn.classList.toggle('done', i < n);
+  }
+  document.getElementById('printBtn').style.display = n === TOTAL_STEPS ? 'block' : 'none';
+  currentStep = n;
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+function proceedToSelectSamples() {
+  if (!parsedSamples.length) return;
+  renderSampleSelectionStep();
+  goToStep(2);
+}
+
+function proceedToGrowthStage() {
+  // Collect checkbox states
+  for (const s of parsedSamples) {
+    const cb = document.getElementById('sample-cb-' + s.id);
+    if (cb) s.selected = cb.checked;
+  }
+  const selected = parsedSamples.filter(s => s.selected);
+  if (!selected.length) { alert('Please select at least one sample.'); return; }
+  renderGrowthStageStep();
+  goToStep(3);
+}
+
+function proceedToInterpretation() {
+  if (!collectGrowthStageData()) return;
+  runAllInterpretations();
+  renderInterpretationStep();
+  goToStep(4);
+}
+
+function proceedToReport() {
+  renderReportStep();
+  goToStep(5);
+}
+
+// ============================================================
+// STEP 2: SELECT SAMPLES
+// ============================================================
+function renderSampleSelectionStep() {
+  const total = parsedSamples.length;
+  const selected = parsedSamples.filter(s => s.selected).length;
+
+  // Source info
+  const farmNames = [...new Set(parsedSamples.map(s => s.farmName).filter(Boolean))];
+  document.getElementById('step2Subtitle').textContent =
+    farmNames.length ? farmNames.join(', ') + ' \u2014 ' + total + ' sample' + (total !== 1 ? 's' : '') + ' detected from lab file.'
+    : total + ' sample' + (total !== 1 ? 's' : '') + ' detected. Select which to include.';
+
+  updateSelectionBar();
+
+  document.getElementById('sampleListContainer').innerHTML = parsedSamples.map(s => `
+    <div class="sample-row ${s.selected ? 'is-selected' : ''}" id="sample-row-${s.id}"
+      onclick="toggleSample(${s.id})">
+      <input type="checkbox" class="sample-checkbox" id="sample-cb-${s.id}"
+        ${s.selected ? 'checked' : ''} onclick="event.stopPropagation(); toggleSample(${s.id})">
+      <div>
+        <div class="sample-info-main">${escapeHtml(s.cultivation || s.location)}</div>
+        <div class="sample-info-sub">${[s.location, s.farmName, s.sampleNumber].filter(Boolean).join(' \u00b7 ')}</div>
+      </div>
+      <span class="sample-crop-badge">${escapeHtml(s.crop || 'Unknown crop')}</span>
+      <span class="sample-date-badge">${escapeHtml(s.date)}</span>
+    </div>
+  `).join('');
+}
+
+function toggleSample(id) {
+  const s = parsedSamples.find(s => s.id === id);
+  if (!s) return;
+  s.selected = !s.selected;
+  const cb = document.getElementById('sample-cb-' + id);
+  const row = document.getElementById('sample-row-' + id);
+  if (cb) cb.checked = s.selected;
+  if (row) row.classList.toggle('is-selected', s.selected);
+  updateSelectionBar();
+}
+
+function selectAll(val) {
+  parsedSamples.forEach(s => {
+    s.selected = val;
+    const cb = document.getElementById('sample-cb-' + s.id);
+    const row = document.getElementById('sample-row-' + s.id);
+    if (cb) cb.checked = val;
+    if (row) row.classList.toggle('is-selected', val);
+  });
+  updateSelectionBar();
+}
+
+function updateSelectionBar() {
+  const selected = parsedSamples.filter(s => s.selected).length;
+  const total = parsedSamples.length;
+  document.getElementById('selectionBar').innerHTML = `
+    <span><strong>${selected}</strong> of ${total} sample${total !== 1 ? 's' : ''} selected</span>
+    <span style="display:flex;gap:12px;">
+      <button class="btn-link" onclick="selectAll(true)">Select all</button>
+      <button class="btn-link" onclick="selectAll(false)">Clear all</button>
+    </span>
+  `;
+}
+
+// ============================================================
+// STEP 3: GROWTH STAGE
+// ============================================================
+function renderGrowthStageStep() {
+  const selected = parsedSamples.filter(s => s.selected);
+  const autoCount = selected.filter(s => s.growthStageAutoSuggested && s.growthStage).length;
+
+  // Show info banner if any stages were auto-suggested
+  const bannerHTML = autoCount > 0 ? `
+    <div style="display:flex;align-items:center;gap:10px;padding:12px 16px;background:#f0faf3;border:1.5px solid #b8dfc4;border-radius:var(--radius-sm);margin-bottom:20px;font-size:13px;color:var(--primary);">
+      <span style="font-size:16px;">&#129520;</span>
+      <span>Growth stages pre-filled based on sampling date (<strong>${selected[0]?.date || ''}</strong>). Review and adjust if needed.</span>
+    </div>` : '';
+
+  document.getElementById('growthStageList').innerHTML = bannerHTML + selected.map(s => `
+    <div class="growth-stage-row">
+      <div class="gs-label">
+        <strong>${escapeHtml(s.cultivation || s.location)}</strong>
+        <small>${escapeHtml(s.location)}${s.farmName ? ' \u00b7 ' + escapeHtml(s.farmName) : ''} &nbsp;&middot;&nbsp; ${escapeHtml(s.crop)} &nbsp;&middot;&nbsp; ${escapeHtml(s.date)}</small>
+      </div>
+      <div class="gs-field">
+        <label style="display:flex;align-items:center;gap:6px;">
+          Growth Stage
+          ${s.growthStageAutoSuggested && s.growthStage
+            ? '<span style="padding:2px 8px;background:var(--accent-soft);color:var(--secondary);border-radius:10px;font-size:10px;font-weight:700;letter-spacing:0.3px;">AUTO</span>'
+            : ''}
+        </label>
+        <select id="gs-${s.id}" onchange="onGrowthStageManualChange(${s.id})">
+          <option value="">Select&hellip;</option>
+          ${Object.entries(GROWTH_STAGE_LABELS).map(([v, l]) =>
+            `<option value="${v}" ${s.growthStage === v ? 'selected' : ''}>${l}</option>`
+          ).join('')}
+        </select>
+      </div>
+      <div class="gs-field">
+        <label>Hectares (optional)</label>
+        <input type="number" id="ha-${s.id}" value="${escapeHtml(s.hectares)}" placeholder="e.g., 45">
+      </div>
+    </div>
+  `).join('');
+}
+
+function onGrowthStageManualChange(id) {
+  const s = parsedSamples.find(s => s.id === id);
+  if (s) s.growthStageAutoSuggested = false; // user overrode it, remove AUTO badge
+  const label = document.querySelector(`#gs-${id}`).closest('.gs-field').querySelector('label');
+  if (label) {
+    const badge = label.querySelector('span');
+    if (badge) badge.remove();
+  }
+}
+
+function collectGrowthStageData() {
+  const selected = parsedSamples.filter(s => s.selected);
+  let valid = true;
+  for (const s of selected) {
+    const gsEl = document.getElementById('gs-' + s.id);
+    const haEl = document.getElementById('ha-' + s.id);
+    if (gsEl) s.growthStage = gsEl.value;
+    if (haEl) s.hectares = haEl.value;
+    if (!s.growthStage) valid = false;
+  }
+  if (!valid) { alert('Please select a growth stage for every sample.'); return false; }
+  return true;
+}
+
+// ============================================================
+// STEP 4 & 5: ANALYSIS + RENDER
+// ============================================================
+function runAllInterpretations() {
+  const selected = parsedSamples.filter(s => s.selected);
+  for (const s of selected) {
+    const benchmarks = BENCHMARKS[s.cropKey]?.[s.growthStage];
+    if (!benchmarks) { s.results = null; continue; }
+    const results = {};
+    for (const key of Object.keys(NUTRIENT_LABELS)) {
+      const val = s.nutrients[key] ?? 0;
+      results[key] = { value: val, benchmark: benchmarks[key], ...getStatus(val, benchmarks[key]) };
+    }
+    s.results = results;
+    s.ratios = computeRatios(s.nutrients);
+    s.recs = generateRecommendations(results, s.ratios, s.growthStage, s.nutrients);
+  }
+}
+
+function renderInterpretationStep() {
+  const selected = parsedSamples.filter(s => s.selected);
+  document.getElementById('step4Subtitle').textContent =
+    selected.length + ' sample' + (selected.length !== 1 ? 's' : '') + ' analysed. Click a section to expand.';
+
+  document.getElementById('interpretationContainer').innerHTML = selected.map((s, i) => {
+    if (!s.results) return `<div class="accordion-item"><p style="padding:16px;color:var(--text-secondary);">Benchmarks not available for ${escapeHtml(s.cultivation)}.</p></div>`;
+    const def = Object.values(s.results).filter(r => ['low','critical'].includes(r.status)).length;
+    const opt = Object.values(s.results).filter(r => r.status === 'normal').length;
+    return `
+      <div class="accordion-item">
+        <button class="accordion-btn ${i === 0 ? 'open' : ''}" onclick="toggleAccordion(this, 'acc-body-${s.id}')">
+          <div class="acc-title">
+            <strong>${escapeHtml(s.cultivation || s.location)}</strong>
+            <small>${escapeHtml(s.location)} &nbsp;&middot;&nbsp; ${GROWTH_STAGE_LABELS[s.growthStage]}${s.hectares ? ' &nbsp;&middot;&nbsp; ' + s.hectares + ' ha' : ''}</small>
+          </div>
+          <div class="acc-badges">
+            ${def > 0 ? `<span class="acc-badge acc-badge-red">\u26a0 ${def} issue${def !== 1 ? 's' : ''}</span>` : ''}
+            <span class="acc-badge acc-badge-green">\u2713 ${opt} optimal</span>
+          </div>
+          <span class="acc-chevron">&#9660;</span>
+        </button>
+        <div class="accordion-body ${i === 0 ? 'open' : ''}" id="acc-body-${s.id}">
+          ${buildSampleAnalysis(s)}
+        </div>
+      </div>`;
+  }).join('');
+}
+
+function buildSampleAnalysis(s) {
+  const crit = Object.values(s.results).filter(r => ['critical','critical_high'].includes(r.status)).length;
+  const def = Object.values(s.results).filter(r => ['low','critical'].includes(r.status)).length;
+  const exc = Object.values(s.results).filter(r => ['high','critical_high'].includes(r.status)).length;
+  const opt = Object.values(s.results).filter(r => r.status === 'normal').length;
+
+  let html = `<div class="impact-grid">
+    <div class="impact-item" style="border-bottom:3px solid var(--red)"><div class="impact-icon">\u26a0\ufe0f</div><div class="impact-value" style="color:var(--red)">${crit}</div><div class="impact-label">Critical</div></div>
+    <div class="impact-item" style="border-bottom:3px solid var(--orange)"><div class="impact-icon">\u2b07\ufe0f</div><div class="impact-value" style="color:var(--orange)">${def}</div><div class="impact-label">Deficiencies</div></div>
+    <div class="impact-item" style="border-bottom:3px solid var(--orange)"><div class="impact-icon">\u2b06\ufe0f</div><div class="impact-value" style="color:var(--orange)">${exc}</div><div class="impact-label">Excesses</div></div>
+    <div class="impact-item" style="border-bottom:3px solid var(--accent)"><div class="impact-icon">\u2705</div><div class="impact-value" style="color:var(--secondary)">${opt}</div><div class="impact-label">Optimal</div></div>
+  </div>`;
+
+  html += '<table class="interp-table"><tr><th>Nutrient</th><th>Value (mg/L)</th><th>Status</th><th>Optimal Range</th></tr>';
+  for (const [key, r] of Object.entries(s.results)) {
+    const pct = getBarPercent(r.value, r.benchmark);
+    const optL = getBarPercent(r.benchmark.optimal_low, r.benchmark);
+    const optH = getBarPercent(r.benchmark.optimal_high, r.benchmark);
+    html += `<tr>
+      <td><strong>${NUTRIENT_LABELS[key]}</strong></td>
+      <td><div class="nutrient-bar-container">
+        <span style="min-width:48px;">${r.value}</span>
+        <div class="nutrient-bar">
+          <div style="position:absolute;left:${optL}%;width:${optH-optL}%;height:100%;background:rgba(52,199,89,0.15);"></div>
+          <div class="nutrient-bar-fill" style="width:${pct}%;background:${getBarColor(r.status)};position:relative;z-index:1;"></div>
+        </div>
+      </div></td>
+      <td><span class="status ${r.cls}">${r.label}</span></td>
+      <td style="color:var(--text-tertiary);font-size:12px;">${r.benchmark.optimal_low} \u2013 ${r.benchmark.optimal_high}</td>
+    </tr>`;
+  }
+  html += '</table>';
+
+  html += '<h3 style="margin-top:28px;">Key Nutrient Ratios</h3>';
+  for (const r of s.ratios) {
+    html += `<div class="ratio-card" style="border-left:4px solid ${getBarColor(r.status)};">
+      <div class="ratio-header"><strong>${r.name}: ${r.value}</strong><span class="status ${r.status==='normal'?'status-normal':r.status==='low'?'status-low':'status-high'}">${r.status==='normal'?'Balanced':r.status==='low'?'Low':'Imbalanced'}</span></div>
+      <div class="ratio-note">Optimal: ${r.optimal} &mdash; ${r.note}</div>
+    </div>`;
+  }
+
+  html += '<h3 style="margin-top:28px;">Recommendations</h3>';
+  const sorted = [...s.recs].sort((a, b) => ({high:0,medium:1,low:2}[a.priority]??9) - ({high:0,medium:1,low:2}[b.priority]??9));
+  for (const r of sorted) {
+    html += `<div class="rec-card ${r.priority==='high'?'urgent':r.priority==='medium'?'moderate':''}">
+      <div class="rec-priority ${r.priority}">${r.priority} priority &mdash; ${r.category}</div>
+      <h4>${r.title}</h4>
+      <p><strong>Action:</strong> ${r.action}</p>
+      <p style="margin-top:8px;"><strong>Why it matters:</strong> ${r.impact}</p>
+    </div>`;
+  }
+  return html;
+}
+
+function renderReportStep() {
+  const selected = parsedSamples.filter(s => s.selected);
+  const farmNames = [...new Set(selected.map(s => s.farmName).filter(Boolean))];
+  const dates = [...new Set(selected.map(s => s.date).filter(Boolean))];
+  const advisors = [...new Set(selected.map(s => s.advisor).filter(Boolean))];
+
+  let html = `
+    <div style="text-align:center;padding-bottom:24px;margin-bottom:28px;border-bottom:2px solid var(--primary);">
+      <h1 style="color:var(--primary);font-size:26px;font-weight:700;letter-spacing:-0.5px;">Asper Sap Analysis Report</h1>
+      <p style="color:var(--text-secondary);font-size:14px;margin-top:4px;">Plant Physiological Diagnostics &mdash; In-Season Nutrient Assessment</p>
+    </div>
+    <dl class="report-meta">
+      <dt>Farm:</dt><dd>${escapeHtml(farmNames.join(', ') || '\u2014')}</dd>
+      <dt>Sampling Date:</dt><dd>${escapeHtml(dates.join(', ') || '\u2014')}</dd>
+      <dt>Advisor:</dt><dd>${escapeHtml(advisors.join(', ') || '\u2014')}</dd>
+      <dt>Samples:</dt><dd>${selected.length}</dd>
+      <dt>Report Generated:</dt><dd>${new Date().toLocaleDateString('en-GB')}</dd>
+    </dl>`;
+
+  selected.forEach((s, i) => {
+    if (!s.results) return;
+    const def = Object.values(s.results).filter(r => ['low','critical'].includes(r.status)).length;
+    const opt = Object.values(s.results).filter(r => r.status === 'normal').length;
+
+    let nutrientRows = Object.entries(s.results).map(([key, r]) => `
+      <tr><td>${NUTRIENT_LABELS[key]}</td>
+      <td style="text-align:right;">${r.value}</td>
+      <td style="text-align:right;">${r.benchmark.optimal_low} \u2013 ${r.benchmark.optimal_high}</td>
+      <td><span class="status ${r.cls}">${r.label}</span></td></tr>`).join('');
+
+    const defList = Object.entries(s.results).filter(([,r])=>['critical','low'].includes(r.status)).map(([k])=>NUTRIENT_LABELS[k]);
+    const excList = Object.entries(s.results).filter(([,r])=>['critical_high','high'].includes(r.status)).map(([k])=>NUTRIENT_LABELS[k]);
+    let summary = '';
+    if (defList.length) summary += 'Deficiencies: ' + defList.join(', ') + '. ';
+    if (excList.length) summary += 'Elevated: ' + excList.join(', ') + '. ';
+    if (!summary) summary = 'All nutrients within optimal ranges. No corrective action required.';
+
+    const sorted = [...s.recs].sort((a,b)=>({high:0,medium:1,low:2}[a.priority]??9)-({high:0,medium:1,low:2}[b.priority]??9));
+    const recRows = sorted.map(r => `<div class="rec-card ${r.priority==='high'?'urgent':r.priority==='medium'?'moderate':''}" style="page-break-inside:avoid;">
+      <div class="rec-priority ${r.priority}">${r.priority} priority &mdash; ${r.category}</div>
+      <h4>${r.title}</h4>
+      <p><strong>Action:</strong> ${r.action}</p>
+      <p style="margin-top:4px;font-size:12px;"><em>${r.impact}</em></p>
+    </div>`).join('');
+
+    html += `
+      <div class="accordion-item" style="margin-bottom:16px;">
+        <button class="accordion-btn ${i===0?'open':''}" onclick="toggleAccordion(this, 'rep-body-${s.id}')">
+          <div class="acc-title">
+            <strong>${escapeHtml(s.cultivation || s.location)}</strong>
+            <small>${escapeHtml(s.location)} &nbsp;&middot;&nbsp; ${GROWTH_STAGE_LABELS[s.growthStage]}${s.hectares?' &nbsp;&middot;&nbsp; '+s.hectares+' ha':''}</small>
+          </div>
+          <div class="acc-badges">
+            ${def>0?`<span class="acc-badge acc-badge-red">\u26a0 ${def} issue${def!==1?'s':''}</span>`:''}
+            <span class="acc-badge acc-badge-green">\u2713 ${opt} optimal</span>
+          </div>
+          <span class="acc-chevron">&#9660;</span>
+        </button>
+        <div class="accordion-body ${i===0?'open':''}" id="rep-body-${s.id}">
+          <div class="summary-box"><strong>Summary:</strong> ${summary}</div>
+          <div style="margin:24px 0;">
+            <h3 style="color:var(--primary);font-size:16px;font-weight:600;border-bottom:2px solid var(--border);padding-bottom:8px;margin-bottom:16px;">Nutrient Status</h3>
+            <table class="interp-table">
+              <tr><th>Nutrient</th><th style="text-align:right;">Value (mg/L)</th><th style="text-align:right;">Optimal Range</th><th>Status</th></tr>
+              ${nutrientRows}
+            </table>
+          </div>
+          <div>
+            <h3 style="color:var(--primary);font-size:16px;font-weight:600;border-bottom:2px solid var(--border);padding-bottom:8px;margin-bottom:16px;">Recommendations</h3>
+            ${recRows}
+          </div>
+        </div>
+      </div>`;
+  });
+
+  html += `<div style="margin-top:40px;padding-top:20px;border-top:2px solid var(--primary);font-size:12px;color:var(--text-tertiary);text-align:center;">
+    <p style="font-weight:600;color:var(--primary);">Asper &mdash; Plant Physiological Diagnostics</p>
+    <p style="margin-top:4px;">Generated: ${new Date().toLocaleDateString('en-GB')} &nbsp;&middot;&nbsp; For advisory purposes only.</p>
+  </div>`;
+
+  document.getElementById('reportOutput').innerHTML = html;
+}
+
+// ============================================================
+// ACCORDION
+// ============================================================
+function toggleAccordion(btn, bodyId) {
+  const body = document.getElementById(bodyId);
+  if (!body) return;
+  const isOpen = btn.classList.contains('open');
+  btn.classList.toggle('open', !isOpen);
+  body.classList.toggle('open', !isOpen);
+}
+
+// ============================================================
+// ANALYSIS HELPERS
+// ============================================================
+function getStatus(value, benchmark) {
+  if (!benchmark) return { status: 'normal', label: 'No data', cls: 'status-normal' };
+  if (value < benchmark.low) return { status: 'critical', label: 'Critically Low', cls: 'status-critical' };
+  if (value < benchmark.optimal_low) return { status: 'low', label: 'Low', cls: 'status-low' };
+  if (value <= benchmark.optimal_high) return { status: 'normal', label: 'Optimal', cls: 'status-normal' };
+  if (value <= benchmark.high) return { status: 'high', label: 'High', cls: 'status-high' };
+  return { status: 'critical_high', label: 'Critically High', cls: 'status-critical' };
+}
+
+function getBarColor(status) {
+  return { critical: 'var(--red)', low: 'var(--orange)', normal: 'var(--accent)', high: 'var(--orange)', critical_high: 'var(--red)' }[status] || '#ccc';
+}
+
+function getBarPercent(value, benchmark) {
+  if (!benchmark) return 3;
+  return Math.min(100, Math.max(3, (value / (benchmark.high * 1.2)) * 100));
+}
+
+function computeRatios(n) {
+  const ratios = [];
+  if (n.potassium && n.calcium) {
+    const v = n.potassium / n.calcium;
+    ratios.push({ name: 'K:Ca Ratio', value: v.toFixed(1), optimal: '4.0 \u2013 6.0',
+      status: v > 8 ? 'critical' : v > 6 ? 'high' : v < 3.5 ? 'low' : 'normal',
+      note: v > 6 ? 'High K is suppressing Ca uptake. Consider calcium foliar application.' : v < 3.5 ? 'K deficiency relative to Ca may limit growth.' : 'K:Ca ratio is within acceptable range.' });
+  }
+  if (n.calcium && n.magnesium) {
+    const v = n.calcium / n.magnesium;
+    ratios.push({ name: 'Ca:Mg Ratio', value: v.toFixed(1), optimal: '1.5 \u2013 3.0',
+      status: v > 4 ? 'high' : v < 1.2 ? 'low' : 'normal',
+      note: v < 1.2 ? 'Mg may be antagonising Ca uptake.' : v > 4 ? 'Mg may be insufficient relative to Ca.' : 'Ca:Mg balance is adequate.' });
+  }
+  if (n.n_no3 && n.n_nh4) {
+    const v = n.n_no3 / (n.n_nh4 || 1);
+    ratios.push({ name: 'NO\u2083:NH\u2084 Ratio', value: v.toFixed(2), optimal: '0.05 \u2013 0.10',
+      status: v > 0.15 ? 'high' : v < 0.02 ? 'low' : 'normal',
+      note: v < 0.02 ? 'Very low nitrate relative to ammonium; typical for active sap at this stage.' : v > 0.15 ? 'Elevated nitrate fraction; check soil conditions.' : 'Nitrogen form balance is within expected range.' });
+  }
+  return ratios;
+}
+
+function generateRecommendations(results, ratios, stage, nutrients) {
+  const recs = [];
+  const canSpray = ['tillering', 'stem_extension', 'flag_leaf'].includes(stage);
+
+  if (['critical','low'].includes(results.n_nh4?.status)) {
+    recs.push({ priority: results.n_nh4.status === 'critical' ? 'high' : 'medium',
+      category: 'Nitrogen Management',
+      title: 'Ammonium-N below optimal at ' + GROWTH_STAGE_LABELS[stage],
+      action: canSpray ? 'Apply foliar nitrogen (urea 5\u201310 kg N/ha) within the next spray window.' : 'Nitrogen is low but foliar window has passed. Document for next season.',
+      impact: 'Low nitrogen limits photosynthetic capacity and protein synthesis, reducing yield potential.' });
+  }
+
+  const kca = ratios.find(r => r.name === 'K:Ca Ratio');
+  if (kca && ['high','critical'].includes(kca.status)) {
+    recs.push({ priority: 'high', category: 'Nutrient Imbalance',
+      title: 'Potassium excess suppressing calcium uptake',
+      action: canSpray ? 'Apply calcium foliar (CaCl\u2082 3\u20135 L/ha). Do not apply additional potassium.' : 'K:Ca imbalance detected. Plan reduced K next season.',
+      impact: 'High K blocks Ca channels in roots. Deficiency weakens cell walls and increases disease risk.' });
+  }
+
+  if (['critical','low'].includes(results.manganese?.status)) {
+    recs.push({ priority: 'medium', category: 'Trace Element Deficiency',
+      title: 'Manganese below optimal range',
+      action: canSpray ? 'Apply MnSO\u2084 foliar at 1\u20131.5 kg Mn/ha. Common on high-pH, organic soils in the Baltic region.' : 'Record for next season. Mn foliar at tillering and stem extension is most effective.',
+      impact: 'Manganese activates photosynthesis enzymes and disease defence systems.' });
+  }
+
+  if (['critical','low'].includes(results.boron?.status)) {
+    recs.push({ priority: 'medium', category: 'Trace Element Deficiency',
+      title: 'Boron below optimal range',
+      action: canSpray ? 'Apply boron foliar at 100\u2013200 g B/ha. Caution: narrow window between deficiency and toxicity.' : 'Apply early-season foliar boron at tillering next season.',
+      impact: 'Boron supports cell wall formation and pollen viability. Deficiency reduces grain set.' });
+  }
+
+  if (['critical','low'].includes(results.zinc?.status)) {
+    recs.push({ priority: results.zinc.status === 'critical' ? 'high' : 'medium', category: 'Trace Element Deficiency',
+      title: 'Zinc deficiency detected',
+      action: canSpray ? 'Apply ZnSO\u2084 foliar at 0.5\u20131 kg Zn/ha.' : 'Plan soil-applied zinc for next season.',
+      impact: 'Zinc is critical for auxin production. Low Zn causes stunted growth and reduced grain set.' });
+  }
+
+  if (['critical','low'].includes(results.copper?.status)) {
+    recs.push({ priority: 'medium', category: 'Trace Element Deficiency',
+      title: 'Copper below optimal range',
+      action: canSpray ? 'Apply CuSO\u2084 foliar at 0.1\u20130.2 kg Cu/ha.' : 'Plan copper application for next season.',
+      impact: 'Copper is essential for enzyme activation and lignin synthesis. Deficiency weakens stems.' });
+  }
+
+  if (['critical','low'].includes(results.sulphur?.status)) {
+    recs.push({ priority: results.sulphur.status === 'critical' ? 'high' : 'medium', category: 'Sulphur Deficiency',
+      title: 'Sulphur below optimal range',
+      action: canSpray ? 'Apply foliar sulphur (MgSO\u2084, 5\u201310 kg S/ha). Tank-mix with N for efficiency.' : 'Plan soil-applied sulphate for next season.',
+      impact: 'Sulphur is essential for nitrogen metabolism. Low S reduces N-use efficiency.' });
+  }
+
+  if (recs.length === 0) {
+    recs.push({ priority: 'low', category: 'Overall Status',
+      title: 'All nutrients within optimal ranges',
+      action: 'No corrective action needed. Continue monitoring at the next scheduled sampling round.',
+      impact: 'The crop is well-nourished. Maintain current management practices.' });
+  }
+  return recs;
+}
+
+// ============================================================
+// GROWTH STAGE AUTO-SUGGESTION
+// Based on sampling date and crop type, for Baltic/North European conditions (~59°N)
+// ============================================================
+function suggestGrowthStage(dateStr, cropKey) {
+  if (!dateStr) return '';
+
+  // Parse "DD-M-YYYY", "DD/MM/YYYY", "YYYY-MM-DD", or natural date strings
+  let date;
+  const dmy = dateStr.match(/^(\d{1,2})[-\/\.](\d{1,2})[-\/\.](\d{4})$/);
+  const ymd = dateStr.match(/^(\d{4})[-\/\.](\d{1,2})[-\/\.](\d{1,2})$/);
+  if (dmy) {
+    date = new Date(parseInt(dmy[3]), parseInt(dmy[2]) - 1, parseInt(dmy[1]));
+  } else if (ymd) {
+    date = new Date(parseInt(ymd[1]), parseInt(ymd[2]) - 1, parseInt(ymd[3]));
+  } else {
+    date = new Date(dateStr);
+  }
+  if (!date || isNaN(date.getTime())) return '';
+
+  // Day-of-year (1 = Jan 1)
+  const start = new Date(date.getFullYear(), 0, 0);
+  const doy = Math.floor((date - start) / 86400000);
+
+  // Winter wheat / barley — approximate phenology for Baltic region (Estonia, Latvia, Lithuania)
+  // Sowing Oct, green-up late March, harvest late July
+  // Adjust ±1 week for warmer crops (OSR bolts ~10 days earlier)
+  const isOsr = (cropKey === 'winter_osr');
+  const offset = isOsr ? -10 : 0;  // OSR is ~10 days earlier
+
+  const ranges = [
+    { stage: 'tillering',       from:  74 + offset, to: 120 + offset }, // Mar 15 – Apr 30
+    { stage: 'stem_extension',  from: 121 + offset, to: 141 + offset }, // May 1  – May 21
+    { stage: 'flag_leaf',       from: 142 + offset, to: 158 + offset }, // May 22 – Jun 7
+    { stage: 'heading',         from: 159 + offset, to: 174 + offset }, // Jun 8  – Jun 23
+    { stage: 'grain_fill',      from: 175 + offset, to: 212 + offset }, // Jun 24 – Jul 31
+  ];
+
+  for (const r of ranges) {
+    if (doy >= r.from && doy <= r.to) return r.stage;
+  }
+  return ''; // outside growing season
+}
+
+// ============================================================
+// UTILS
+// ============================================================
+function escapeHtml(str) {
+  if (!str) return '';
+  return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+</script>
+</body>
+</html>
